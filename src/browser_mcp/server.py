@@ -3,6 +3,7 @@ from mcp.server.fastmcp import FastMCP, Context
 from .browser import BrowserManager
 from .diff import compute_diff
 from .modals import detect_modals
+from .cursor import inject_cursor
 
 
 async def _with_modals(page, msg):
@@ -28,6 +29,7 @@ def create_server(_args=None):
         before = await page.content()
         await page.goto(url, wait_until="networkidle")
         after = await page.content()
+        await inject_cursor(page)
         diff = compute_diff(before, after)
         msg = f"Navigated to {url}"
         if diff:
@@ -207,6 +209,7 @@ def create_server(_args=None):
         page = await browser_ctx.new_page()
         if url:
             await page.goto(url, wait_until="networkidle")
+        await inject_cursor(page)
         return f"New tab opened (index: {len(browser_ctx.pages) - 1})"
 
     @mcp.tool()
