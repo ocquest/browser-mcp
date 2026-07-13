@@ -1,0 +1,11 @@
+services:
+  browser-mcp:
+    build: .
+    ports:
+      - "3100:3100"
+    volumes:
+      - browser-profiles:/profiles
+    command: ["--port", "3100", "--profile", "/profiles/default"]
+
+volumes:
+  browser-profiles:

@@ -1,0 +1,17 @@
+[project]
+name = "browser-mcp"
+version = "0.1.0"
+description = "MCP server for undetectable browser automation"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.0.0",
+    "playwright>=1.50.0",
+    "invisible_playwright @ git+https://github.com/feder-cr/invisible_playwright.git",
+]
+
+[project.optional-dependencies]
+captcha = ["2captcha-python>=1.2.0"]
+test = ["pytest>=8.0.0", "pytest-asyncio>=0.24.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
