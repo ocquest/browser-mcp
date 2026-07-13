@@ -1,11 +1,10 @@
 from invisible_playwright.async_api import InvisiblePlaywright
-from playwright.async_api import BrowserContext
 
 
 class BrowserManager:
     _instance = None
     _browser = None
-    _contexts: dict[str, BrowserContext] = {}
+    _contexts: dict[str, "BrowserContext"] = {}
     _args = None
 
     @classmethod
@@ -22,9 +21,10 @@ class BrowserManager:
         return cls._instance
 
     async def _start(self):
-        self._browser = await InvisiblePlaywright().start()
+        pw = InvisiblePlaywright(headless=self._args.headless)
+        self._browser = await pw.__aenter__()
 
-    async def get_context(self, session_id: str) -> BrowserContext:
+    async def get_context(self, session_id: str):
         if session_id not in self._contexts:
             ctx = await self._browser.new_context(
                 viewport={"width": self._args.viewport_width, "height": self._args.viewport_height},

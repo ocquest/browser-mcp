@@ -12,7 +12,7 @@ Servidor MCP (Model Context Protocol) para navegador web, diseñado para que age
 - Dar visibilidad total del estado del navegador con diffs HTML post-acción.
 - Mantener sesión persistente entre invocaciones para flujos largos.
 - Soportar múltiples instancias de opencode (o cualquier cliente MCP) de forma simultánea sin conflictos, aislando cada sesión en su propio contexto de navegador.
-- Ejecutarse siempre dentro de Docker, headless, sin interferir con el sistema anfitrión.
+- Poder ejecutarse en Docker (opcional) sin interferir con el sistema anfitrión.
 
 ## 3. Stack Tecnológico
 
@@ -37,27 +37,27 @@ Desarrolladores que construyen agentes autónomos con herramientas de IA, integr
 - **Snapshot pre/post**: antes de cada acción se captura el HTML del `body`, después se genera un diff contra ese snapshot.
 - **Chain tool**: permite componer múltiples herramientas en una sola llamada para reducir ida y vuelta.
 
-## 6. Ejecución (Docker)
+## 6. Ejecución
 
-El servidor MCP se ejecuta **siempre dentro de Docker, headless**. No se ejecuta directamente en el sistema anfitrión.
+### Local (por defecto)
 
-### Docker
+El servidor se ejecuta directamente en el sistema. El navegador es **visible por defecto** (`--headless` es opt-in).
 
-- Imagen base con Python 3.11+ y Chromium + dependencias de Playwright.
-- `docker run` expone el puerto del servidor MCP. El servidor usa `--host 0.0.0.0` para aceptar conexiones externas (solo contenedor).
+### Docker (opcional)
+
+- Imagen base con Python 3.11+ y Firefox + dependencias de Playwright.
+- `docker run` expone el puerto del servidor MCP.
 - `docker-compose.yml` para gestión de perfiles persistentes vía volúmenes.
 - El contenedor incluye `invisible_playwright` y `2captcha-python` preinstalados.
+- En Docker se recomienda usar `--headless` ya que no hay display.
 
 ### CLI args
 
-Se pasan como argumentos al entrypoint del contenedor:
-
-  - `--port` (puerto del servidor MCP, por defecto 3100)
-  - `--profile` (ruta dentro del contenedor al perfil de Chromium. Si se usa Docker volume, persiste entre reinicios)
+  - `--port` (puerto del servidor MCP, opcional. Por defecto usa stdio)
+  - `--headless` (flag, opt-in. Por defecto el navegador es visible)
+  - `--profile` (ruta al perfil de Firefox. Si se usa Docker volume, persiste entre reinicios)
   - `--viewport-width` / `--viewport-height`
   - `--2captcha-api-key` (clave API de 2captcha, opcional. Si se provee, se habilita la tool `captcha_solve`)
-
-No existe flag `--headless`; siempre es headless true ya que corre en contenedor.
 
 ## 7. Herramientas (Toolset)
 
