@@ -6,16 +6,18 @@ class BrowserManager:
     _instance = None
     _browser = None
     _contexts: dict[str, BrowserContext] = {}
-
-    def __init__(self, args):
-        self.args = args
+    _args = None
 
     @classmethod
-    async def get_instance(cls, args=None):
+    def init(cls, args):
+        cls._args = args
+
+    @classmethod
+    async def get_instance(cls):
         if cls._instance is None:
-            if args is None:
-                raise RuntimeError("BrowserManager not initialized")
-            cls._instance = cls(args)
+            if cls._args is None:
+                raise RuntimeError("BrowserManager not initialized. Call init(args) first.")
+            cls._instance = cls()
             await cls._instance._start()
         return cls._instance
 
@@ -25,7 +27,7 @@ class BrowserManager:
     async def get_context(self, session_id: str) -> BrowserContext:
         if session_id not in self._contexts:
             ctx = await self._browser.new_context(
-                viewport={"width": self.args.viewport_width, "height": self.args.viewport_height},
+                viewport={"width": self._args.viewport_width, "height": self._args.viewport_height},
             )
             self._contexts[session_id] = ctx
         return self._contexts[session_id]
