@@ -2,12 +2,20 @@ from mcp.server.fastmcp import FastMCP, Context
 
 from .browser import BrowserManager
 from .diff import compute_diff
+from .modals import detect_modals
+
+
+async def _with_modals(page, msg):
+    modals = await detect_modals(page)
+    if modals:
+        msg += "\n" + modals
+    return msg
 
 
 def create_server(_args=None):
     mcp = FastMCP(
         "browser-mcp",
-        instructions="""Browser automation MCP server. Tools: goto, click, fill, keystroke, sleep, view, chain, tab_list, tab_new, tab_switch, tab_close. Each tool returns an HTML diff of what changed after the action.""",
+        instructions="""Browser automation MCP server. Tools: goto, click, fill, keystroke, sleep, view, chain, tab_list, tab_new, tab_switch, tab_close. Each tool returns an HTML diff of what changed after the action, plus a list of modals/overlays detected on the page.""",
     )
 
     @mcp.tool()
@@ -24,7 +32,7 @@ def create_server(_args=None):
         msg = f"Navigated to {url}"
         if diff:
             msg += f"\n\nDiff:\n{diff}"
-        return msg
+        return await _with_modals(page, msg)
 
     @mcp.tool()
     async def click(selector: str, ctx: Context) -> str:
@@ -48,7 +56,7 @@ def create_server(_args=None):
         msg = f"Clicked {selector}"
         if diff:
             msg += f"\n\nDiff:\n{diff}"
-        return msg
+        return await _with_modals(page, msg)
 
     @mcp.tool()
     async def fill(selector: str, value: str, ctx: Context) -> str:
@@ -78,7 +86,7 @@ def create_server(_args=None):
         msg = f"Filled {selector}"
         if diff:
             msg += f"\n\nDiff:\n{diff}"
-        return msg
+        return await _with_modals(page, msg)
 
     @mcp.tool()
     async def keystroke(keys: str, ctx: Context) -> str:
@@ -94,7 +102,7 @@ def create_server(_args=None):
         msg = f"Sent keys: {keys}"
         if diff:
             msg += f"\n\nDiff:\n{diff}"
-        return msg
+        return await _with_modals(page, msg)
 
     @mcp.tool()
     async def sleep(ctx: Context, seconds: float | None = None,
@@ -114,7 +122,8 @@ def create_server(_args=None):
             await page.wait_for_selector(wait_for_hidden, state="hidden", timeout=timeout)
             return f"Element hidden: {wait_for_hidden}"
         await asyncio.sleep(seconds or 2)
-        return f"Slept for {seconds or 2}s"
+        msg = f"Slept for {seconds or 2}s"
+        return await _with_modals(page, msg)
 
     @mcp.tool()
     async def view(ctx: Context, selector: str | None = None,
@@ -152,7 +161,11 @@ def create_server(_args=None):
         }}
         """
         result = await page.evaluate(js)
-        return json.dumps(result, indent=2)
+        msg = json.dumps(result, indent=2)
+        modals = await detect_modals(page)
+        if modals:
+            msg += "\n" + modals
+        return msg
 
     @mcp.tool()
     async def chain(steps: list, ctx: Context) -> str:
@@ -172,7 +185,7 @@ def create_server(_args=None):
         msg = f"Chain executed: {' -> '.join(results)}"
         if diff:
             msg += f"\n\nDiff:\n{diff}"
-        return msg
+        return await _with_modals(page, msg)
 
     @mcp.tool()
     async def tab_list(ctx: Context) -> str:
