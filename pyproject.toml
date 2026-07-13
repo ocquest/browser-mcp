@@ -7,6 +7,7 @@ dependencies = [
     "mcp>=1.0.0",
     "playwright>=1.50.0",
     "invisible_playwright @ git+https://github.com/feder-cr/invisible_playwright.git",
+    "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]

@@ -4,6 +4,7 @@ from .browser import BrowserManager
 from .diff import compute_diff
 from .modals import detect_modals
 from .cursor import inject_cursor
+from .orbit import ask_orbit, init_orbit
 
 
 async def _with_modals(page, msg):
@@ -14,9 +15,11 @@ async def _with_modals(page, msg):
 
 
 def create_server(_args=None):
+    if _args and _args.orbit_sk:
+        init_orbit(_args.orbit_sk, _args.orbit_url)
     mcp = FastMCP(
         "browser-mcp",
-        instructions="""Browser automation MCP server. Tools: goto, click, fill, keystroke, sleep, view, chain, tab_list, tab_new, tab_switch, tab_close. Each tool returns an HTML diff of what changed after the action, plus a list of modals/overlays detected on the page.""",
+        instructions="""Browser automation MCP server. Tools: goto, click, fill, keystroke, sleep, view, chain, drag (by coordinates), screenshot_element (capture element + AI analysis), tab_list, tab_new, tab_switch, tab_close. Each tool returns an HTML diff + modals/overlays detected.""",
     )
 
     @mcp.tool()
@@ -242,5 +245,52 @@ def create_server(_args=None):
             await pages[index].close()
             idx = index
         return f"Closed tab {idx}"
+
+    @mcp.tool()
+    async def drag(start_x: int, start_y: int, end_x: int, end_y: int, ctx: Context) -> str:
+        """Drag from (start_x, start_y) to (end_x, end_y) using real mouse movement."""
+        bm = await BrowserManager.get_instance()
+        session_key = ctx.client_id or "default"
+        browser_ctx = await bm.get_context(session_key)
+        page = browser_ctx.pages[0] if browser_ctx.pages else await browser_ctx.new_page()
+        before = await page.content()
+        await page.mouse.move(start_x, start_y, steps=5)
+        await page.mouse.down()
+        await page.mouse.move(end_x, end_y, steps=20)
+        await page.mouse.up()
+        after = await page.content()
+        diff = compute_diff(before, after)
+        msg = f"Dragged from ({start_x},{start_y}) to ({end_x},{end_y})"
+        if diff:
+            msg += f"\n\nDiff:\n{diff}"
+        return await _with_modals(page, msg)
+
+    @mcp.tool()
+    async def screenshot_element(selector: str, ctx: Context, prompt: str | None = None) -> str:
+        """Take a screenshot of an element and optionally analyze it with AI.
+        If prompt is provided and --orbit-sk was set, sends the image to OrbitLLM.
+        Otherwise returns the screenshot as base64."""
+        import base64
+        bm = await BrowserManager.get_instance()
+        session_key = ctx.client_id or "default"
+        browser_ctx = await bm.get_context(session_key)
+        page = browser_ctx.pages[0] if browser_ctx.pages else await browser_ctx.new_page()
+        el = await page.wait_for_selector(selector)
+        if el is None:
+            return f"Element not found: {selector}"
+        box = await el.bounding_box()
+        if not box:
+            return f"Element has no bounding box: {selector}"
+        screenshot = await page.screenshot(
+            clip={"x": box["x"], "y": box["y"], "width": box["width"], "height": box["height"]},
+            type="png",
+        )
+        b64 = base64.b64encode(screenshot).decode()
+        if prompt and _args and _args.orbit_sk:
+            result = await ask_orbit(prompt, b64)
+            return f"Screenshot of '{selector}' analyzed:\n\n{result}"
+        elif prompt and (not _args or not _args.orbit_sk):
+            return f"OrbitLLM not configured. Provide --orbit-sk. Screenshot (base64): {b64[:100]}..."
+        return f"Screenshot of '{selector}' (base64, {len(b64)} bytes): {b64[:200]}..."
 
     return mcp
